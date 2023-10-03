@@ -1,0 +1,576 @@
+/*
+Gramatica para el Robot:
+Autor: Alejandro Arango
+Modificado por: Silvia Takahashi
+Modificado por: Juan Pablo Morales.
+Agregadas producciones para manejar globos
+Modificado por Silvia Takahashi
+ **/
+
+
+options 
+{
+  
+	LOOKAHEAD=2; 
+	IGNORE_CASE=true;
+	STATIC = false;
+	
+}
+   
+
+PARSER_BEGIN(Robot)
+
+package uniandes.lym.robot.control;
+
+import uniandes.lym.robot.kernel.*;
+import uniandes.lym.robot.view.Console;
+ 
+import java.awt.Point;
+import java.io.*;
+import java.util.Vector;
+import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Collections;
+
+@SuppressWarnings("serial")
+public class Robot {
+	static HashMap<String, ArrayList[]> allProcedures = new HashMap<>();
+	String salida=new String();
+	static HashMap<String, Integer> globalVaribles = new HashMap<>();
+
+	private RobotWorldDec world;
+
+	
+	void setWorld(RobotWorld w) {
+		world = (RobotWorldDec) w;	
+	}
+}
+PARSER_END(Robot)
+
+SKIP:
+{
+	" "
+	|	"\r"
+	|	"\t"
+	| "\n"
+}
+
+TOKEN: {
+			<VAR: "defVar">
+		|	<PROC: "defProc">
+}
+
+TOKEN: {
+			<WHILE: "while">
+		|	<IF: "if">
+		|	<ELSE: "else">
+		|	<REPEAT: "repeat">
+		|	<TIMES: "times">
+		|	<FACING: "facing">
+		|	<CAN: "can">
+		|	<NOT: "not">
+		|   <DIRECTIONS: "north" | "south" | "east" | "west" | "front" | "right" | "left" | "back">
+}
+
+TOKEN: {
+			<JUMP: "jump">
+		|	<WALK: "walk">
+}
+
+
+TOKEN :
+{
+			<#DIGIT: ["0"-"9"] >
+		|  	<NUM: (<DIGIT>)+ >
+		|   <#LETTER: ["A"-"Z"] >
+		|	<NAME: (<LETTER>)+>
+}
+
+
+
+	//boolean command(uniandes.lym.robot.view.Console sistema) :
+	boolean command(Console sistema):
+	{	
+		boolean noError = true;
+	}
+
+	{ 
+		(commandBlock() {if (!noError){return noError;}sistema.printOutput(salida);return true;}| defVar() | defProc()
+		{
+			for (Map.Entry<String, ArrayList[]> entry : allProcedures.entrySet()) {
+				String key = entry.getKey(); salida += key;
+				ArrayList[] value = entry.getValue();
+				ArrayList<String> array = value[0];
+				for (String string : array) {
+					salida += " "+string;
+				}
+				ArrayList<ArrayList<String>> bigArray = value[1];
+				for (ArrayList<String> list : bigArray) {
+					for (String string : list) {
+						salida += " "+string;
+            		}
+            	}
+        	}sistema.printOutput(salida);return true;
+		}
+		
+		)
+
+    	| <EOF> {return false;} 
+	}
+
+	boolean commandBlock():
+	{
+		boolean noError = true;
+		HashMap<String, Object> ControlStructureData;
+		ArrayList<Object> simpleCommands = new ArrayList<>();
+	}
+	{
+		"{"
+			(
+				(   readSimpleCommand(simpleCommands)(";"readSimpleCommand(simpleCommands))*  )[";"]
+				executeSimpleCommands(simpleCommands, globalVaribles){return true;}
+			|
+				noError = executeProc(){if (!noError){return noError;}}
+			|
+				ControlStructureData = readControlStructure()
+				executeControlStructure(ControlStructureData, globalVaribles)
+			)*
+		"}"
+	}
+
+	HashMap<String, Object> readControlStructure():
+	{
+		HashMap<String, Object> ControlStructureData = new HashMap<>();
+		String structure; 
+		boolean not = false;
+		String condition;
+		String check;
+		int times;
+		ArrayList<Object> checkSimpleCommand = new ArrayList<>();
+		ArrayList<Object> blockSimpleCommands = new ArrayList<>();
+		ArrayList<Object> blockSimpleCommands_2 = new ArrayList<>();
+	}
+	{
+		(
+			<WHILE> {structure = token.image;
+					ControlStructureData.put("structure",structure);} 
+			[<NOT> {not = true;}":"]
+			{ControlStructureData.put("not",not);}
+				(
+					<CAN> {condition = token.image;
+						ControlStructureData.put("condition",condition);}
+						"(" 
+							readSimpleCommand(checkSimpleCommand) 
+							{ControlStructureData.put("check",checkSimpleCommand);}
+						")"
+				 | 	<FACING> {condition = token.image;
+							ControlStructureData.put("condition",condition);}
+						"(" 
+						<DIRECTIONS>{check = token.image;
+									 ControlStructureData.put("check",check);}
+						")"
+				)
+			"{"
+			(readSimpleCommand(blockSimpleCommands))+
+			"}"
+			{ControlStructureData.put("block",blockSimpleCommands);}
+		)
+		|
+		(
+			<REPEAT> {structure = token.image;
+					ControlStructureData.put("structure",structure);} 
+			
+			<NUM>{times = Integer.parseInt(token.image);}
+			<TIMES>
+			"{"
+			(readSimpleCommand(blockSimpleCommands))+
+			"}"
+			{ControlStructureData.put("block",blockSimpleCommands);}
+		)
+		|
+		(
+			<IF> {structure = token.image;
+					ControlStructureData.put("structure",structure);} 
+			[<NOT> {not = true;}":"]
+			{ControlStructureData.put("not",not);}
+				(
+					<CAN> {condition = token.image;
+						ControlStructureData.put("condition",condition);}
+						"(" 
+							readSimpleCommand(checkSimpleCommand) 
+							{ControlStructureData.put("check",checkSimpleCommand);}
+						")"
+				 | 	<FACING> {condition = token.image;
+							ControlStructureData.put("condition",condition);}
+						"(" 
+						<DIRECTIONS>{check = token.image;
+									 ControlStructureData.put("check",check);}
+						")"
+				)
+			"{"
+			(readSimpleCommand(blockSimpleCommands))+
+			"}"
+			{ControlStructureData.put("block",blockSimpleCommands);}
+
+			<ELSE>
+			[<NOT> {not = true;}":"]
+			{ControlStructureData.put("not",not);}
+				(
+					<CAN> {condition = token.image;
+						ControlStructureData.put("condition",condition);}
+						"(" 
+							readSimpleCommand(checkSimpleCommand) 
+							{ControlStructureData.put("check",checkSimpleCommand);}
+						")"
+				 | 	<FACING> {condition = token.image;
+							ControlStructureData.put("condition",condition);}
+						"(" 
+						<DIRECTIONS>{check = token.image;
+									 ControlStructureData.put("check",check);}
+						")"
+				)
+			"{"
+			(readSimpleCommand(blockSimpleCommands_2))+
+			"}"
+			{ControlStructureData.put("block",blockSimpleCommands_2);}
+		)
+
+
+		{return ControlStructureData;}
+	}
+
+	void executeControlStructure(HashMap<String, Object> ControlStructureData, HashMap<String, Integer> variablesMap):
+	{
+	}
+	{
+		{
+			String structure = (String) ControlStructureData.get("structure");
+
+			if (structure.equals("while")){
+				boolean not = (boolean) ControlStructureData.get("not");
+				String condition = (String) ControlStructureData.get("condition");
+				
+				if (condition.equals("facing")){
+					String direction = (String) ControlStructureData.get("check");
+					ArrayList<Object> blockSimpleCommands = (ArrayList<Object>) ControlStructureData.get("block");
+					while (facing(direction)){
+						executeSimpleCommands(blockSimpleCommands, variablesMap);
+						}
+
+					}
+			}
+
+		}
+	}
+
+	boolean facing(String direction):
+	{}
+	{
+		{
+			if (direction.equals("north")){
+				return world.facingNorth();
+			}
+
+			if (direction.equals("south")){
+				return world.facingSouth();
+			}
+
+			if (direction.equals("east")){
+				return world.facingEast();
+			}
+
+			if (direction.equals("west")){
+				return world.facingWest();
+			}
+		}
+	}
+
+	boolean executeProc():
+	{
+		String procName; 
+		String variable;
+		ArrayList<String> inputVaribles = new ArrayList<>();
+	}
+	{
+		<NAME>
+		{procName = token.image;}
+		"("
+			( 
+			(<NAME>|<NUM>) {variable = token.image;
+					inputVaribles.add(variable);}
+				(
+					"," 
+					(<NAME>|<NUM>) {variable = token.image;
+						    inputVaribles.add(variable);}
+				)* 
+		   )*
+		")"
+
+		//code that actually executes the procedure
+		{
+		 
+			for (int i = 0; i < inputVaribles.size(); i++) 
+			{
+					variable = inputVaribles.get(i);
+					if (globalVaribles.get(variable) != null)
+					{
+						inputVaribles.set(i,Integer.toString(globalVaribles.get(variable)));
+					} else 
+					{
+						try {
+								int intValue = Integer.parseInt(variable);
+							} 
+						catch (NumberFormatException e) 
+							{
+								salida = "The variable " + variable + " does not exist";
+								return false;
+							}
+					}	
+			}
+			if (allProcedures.containsKey(procName))
+				{
+					ArrayList[] procData = allProcedures.get(procName);
+					ArrayList<String> procVaribles = procData[0];
+
+					if (procVaribles.size() == inputVaribles.size())
+					{
+						HashMap<String, Integer> variablesMap = new HashMap<>();
+
+						for (int i = 0; i < inputVaribles.size(); i++) 
+						{
+							String key = procVaribles.get(i);
+							Integer value = Integer.parseInt(inputVaribles.get(i));
+							variablesMap.put(key, value);
+						}
+
+						ArrayList<Object> allComands = procData[1];
+						
+						for (Object command : allComands) {
+							if (command instanceof ArrayList<?>){
+								executeSimpleCommands((ArrayList<Object>)command, variablesMap);
+								}
+							else if (command instanceof HashMap<?, ?>) {
+								executeControlStructure((HashMap<String, Object>)command, variablesMap);
+								}
+        					}
+					} 
+				
+					else 
+						{  salida = "The procedure being called "+"'"+procName+"'"+
+							" takes "+procVaribles.size()+" input varibles, not "+inputVaribles.size();
+							return false;
+						}
+				}
+		}
+	}
+
+	boolean executeSimpleCommands(ArrayList<Object> simpleCommands, HashMap<String, Integer> variablesMap):
+	{
+		ArrayList<String> directions = new ArrayList<>();
+		Collections.addAll(directions, "north","south","east","west");
+		ArrayList<String> directions_2 = new ArrayList<>();
+		Collections.addAll(directions_2, "front", "right", "left", "back");
+	}
+	{
+		 {	
+			Object casting = simpleCommands;
+			ArrayList<ArrayList<String>> SimpleCommands = (ArrayList<ArrayList<String>>) casting;
+            for (ArrayList<String> simpleCommandList : SimpleCommands) {
+                String commandName = simpleCommandList.remove(0);
+                ArrayList<Object> variables = new ArrayList<>();
+                for (String variable : simpleCommandList) {
+                    Integer intValue = variablesMap.get(variable);
+                    if (intValue != null) {
+                        variables.add(intValue);
+                    } else if (directions.contains(variable)||directions_2.contains(variable)){
+						variables.add(variable);
+					}
+					else{
+                        try {
+                            intValue = Integer.parseInt(variable);
+                            variables.add(intValue);
+                        } catch (NumberFormatException e) {
+                            salida = "The variable " + variable + " does not exist";
+                            return false;
+                        }
+                    }
+                }
+                if (commandName.equals("jump")) {
+                    world.setPostion((Integer)variables.get(0),(Integer)variables.get(1));
+                } else if (commandName.equals("walk") && (variables.size() > 1)) {
+                    if (directions.contains(variables.get(1))) {
+                        turnTo((String)variables.get(1));
+                        world.moveForward((Integer)variables.get(0), false);
+                    } else {
+                        String direction = (String) variables.get(1);
+                        if (direction.equals("front")) {
+                            world.moveForward((Integer)variables.get(0), false);
+                        }
+                        if (direction.equals("right")) {
+                            world.turnRight();
+                            world.moveForward((Integer)variables.get(0), false);
+                            world.turnRight();
+                            world.turnRight();
+                            world.turnRight();
+                        }
+                        if (direction.equals("back")) {
+                            world.turnRight();
+                            world.turnRight();
+                            world.moveForward((Integer)variables.get(0), false);
+                            world.turnRight();
+                            world.turnRight();
+                        }
+                        if (direction.equals("left")) {
+                            world.turnRight();
+                            world.turnRight();
+                            world.turnRight();
+                            world.moveForward((Integer)variables.get(0), false);
+                            world.turnRight();
+                        }
+                    }
+                } else if (commandName.equals("walk")) {
+                    world.moveForward((Integer)variables.get(0), false);
+                }
+
+            }
+        }
+	}
+
+	void assignment():
+	{}
+	{
+		<NAME>"="<NUM>
+	}
+
+	void defVar():
+	{
+		String variable;
+		int value ;
+	}
+	{
+		<VAR> 
+		<NAME> {variable = token.image;} 
+		<NUM> {value = Integer.parseInt(token.image);} 
+		{globalVaribles.put(variable,value);}
+	}
+
+	void defProc():
+	{
+		String procName;
+		String variable;
+		ArrayList<Object>[] procData = new ArrayList[2];
+		ArrayList<Object> procVaribles = new ArrayList<>();
+		ArrayList<Object> allComands = new ArrayList<>();
+		procData[0] = procVaribles;
+		procData[1] = allComands;
+	}
+	{
+		//This part reads the name and varibles
+		//for example "someName(a,b,c)"
+		<PROC> 
+		<NAME> {procName = token.image;}
+		
+	 	"("
+		   ( 
+			<NAME> {variable = token.image;
+					procVaribles.add(variable);}
+				(
+					"," 
+					(<NAME>|<DIRECTIONS>) {variable = token.image;
+						    			   procVaribles.add(variable);}
+				)* 
+		   )*
+		")"
+
+		//This part reads the commandBlock
+		//for example "{jump(1,2);walk(2,north)}" 
+		"{"
+			( 
+				{ArrayList<Object> procSimpleCommands = new ArrayList<>();}
+				readSimpleCommand(procSimpleCommands)
+				{allComands.add(procSimpleCommands);}
+				|
+				{HashMap<String, Object> controlStructure = new HashMap<>();}
+				controlStructure = readControlStructure()
+				{allComands.add(controlStructure);}
+			)+
+		"}"
+		{allProcedures.put(procName,procData);}
+
+	}
+
+	void readSimpleCommand(ArrayList<Object> procSimpleCommands):
+	{
+		String name;
+		String variable;
+		ArrayList<String> simpleCommand = new ArrayList<>();
+	}
+	{
+		(
+			 <JUMP>
+			|<WALK>
+		)
+		{name = token.image;
+		simpleCommand.add(name);}
+		"("
+			( 
+			(<NAME>|<NUM>|<DIRECTIONS>) {variable = token.image;
+					simpleCommand.add(variable);}
+				(
+					"," 
+					(<NAME>|<NUM>|<DIRECTIONS>) {variable = token.image;
+						    simpleCommand.add(variable);}
+				)* 
+		   )*
+		")"
+		{procSimpleCommands.add(simpleCommand);}
+	}
+
+	boolean ableToExecute():
+	{}
+	{
+		{return true;}
+	}
+
+	void turnTo(String directionStr):
+	{
+		int directionNum = 0; 
+	}
+	{
+		{
+			if (directionStr.equals("north")){directionNum = 0;}
+			else if (directionStr.equals("south")){directionNum = 1;}
+			else if (directionStr.equals("east")){directionNum = 2;}
+			else if (directionStr.equals("west")){directionNum = 3;}
+			int currentDirection = world.getFacing();
+
+			while (currentDirection != directionNum){world.turnRight();currentDirection = world.getFacing();}
+		}
+	}
+
+	/**
+	 * Unsigned decimal number
+	 * @return the corresponding value of the string
+	 * @error  corresponding value is too large
+	 */
+
+	int num() throws Error:
+	{	
+		int total=1;
+	}
+	{
+		<NUM>
+		{
+			try 
+			{
+				total = Integer.parseInt(token.image);
+			} 
+			catch (NumberFormatException ee) 
+			{
+				throw new Error("Number out of bounds: "+token.image+" !!");
+			}
+			return total;
+		}
+	}
