@@ -33,6 +33,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Collections;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.awt.Point;
 
 @SuppressWarnings("serial")
 public class Robot {
@@ -77,6 +81,14 @@ TOKEN: {
 TOKEN: {
 			<JUMP: "jump">
 		|	<WALK: "walk">
+		|	<LEAP: "leap">
+		|	<TURN: "turn">
+		|	<TURNTO: "turnto">
+		|	<DROP: "drop">
+		|	<GET: "get">
+		|	<GRAB: "grab">
+		|	<LETGO: "letGo">
+		|	<NOP: "nop">
 }
 
 
@@ -97,30 +109,14 @@ TOKEN :
 	}
 
 	{ 
-		(commandBlock() {if (!noError){return noError;}sistema.printOutput(salida);return true;}| defVar() | defProc()
-		{
-			for (Map.Entry<String, ArrayList[]> entry : allProcedures.entrySet()) {
-				String key = entry.getKey(); salida += key;
-				ArrayList[] value = entry.getValue();
-				ArrayList<String> array = value[0];
-				for (String string : array) {
-					salida += " "+string;
-				}
-				ArrayList<ArrayList<String>> bigArray = value[1];
-				for (ArrayList<String> list : bigArray) {
-					for (String string : list) {
-						salida += " "+string;
-            		}
-            	}
-        	}sistema.printOutput(salida);return true;
-		}
-		
-		)
+		(
+			commandBlock() | defVar() | defProc()
+		)+ {return true;}
 
     	| <EOF> {return false;} 
 	}
 
-	boolean commandBlock():
+	void commandBlock():
 	{
 		boolean noError = true;
 		HashMap<String, Object> ControlStructureData;
@@ -128,23 +124,52 @@ TOKEN :
 	}
 	{
 		"{"
+			(  
+					readSimpleCommand(simpleCommands)(";"readSimpleCommand(simpleCommands))*
+					noError = executeSimpleCommands(simpleCommands, globalVaribles)
+				|
+					noError = executeProc()
+				|
+					ControlStructureData = readControlStructure()
+					executeControlStructure(ControlStructureData, globalVaribles)
+			)
+
 			(
-				(   readSimpleCommand(simpleCommands)(";"readSimpleCommand(simpleCommands))*  )[";"]
-				executeSimpleCommands(simpleCommands, globalVaribles){return true;}
-			|
-				noError = executeProc(){if (!noError){return noError;}}
-			|
-				ControlStructureData = readControlStructure()
+				";"(   readSimpleCommand(simpleCommands)(";"readSimpleCommand(simpleCommands))*  )
+				executeSimpleCommands(simpleCommands, globalVaribles)
+				|
+				";"noError = executeProc()
+				|
+				";"ControlStructureData = readControlStructure()
 				executeControlStructure(ControlStructureData, globalVaribles)
 			)*
+
 		"}"
+	}
+
+	void write(String thingToCheck):
+	{}
+	{
+		{
+			String filePath = "uwu.txt";
+
+			try {
+				FileWriter fileWriter = new FileWriter(filePath, true);
+				BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
+				bufferedWriter.newLine();
+				bufferedWriter.write(thingToCheck);
+				bufferedWriter.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 	HashMap<String, Object> readControlStructure():
 	{
 		HashMap<String, Object> ControlStructureData = new HashMap<>();
 		String structure; 
-		boolean not = false;
+		boolean not = true;
 		String condition;
 		String check;
 		int times;
@@ -153,10 +178,11 @@ TOKEN :
 		ArrayList<Object> blockSimpleCommands_2 = new ArrayList<>();
 	}
 	{
+	  (
 		(
 			<WHILE> {structure = token.image;
 					ControlStructureData.put("structure",structure);} 
-			[<NOT> {not = true;}":"]
+			[<NOT> {not = false;}":"]
 			{ControlStructureData.put("not",not);}
 				(
 					<CAN> {condition = token.image;
@@ -180,9 +206,11 @@ TOKEN :
 		|
 		(
 			<REPEAT> {structure = token.image;
-					ControlStructureData.put("structure",structure);} 
+					ControlStructureData.put("structure",structure);
+					salida = "JAJAJAJAJAJ";} 
 			
-			<NUM>{times = Integer.parseInt(token.image);}
+			<NUM>{times = Integer.parseInt(token.image);
+				  ControlStructureData.put("times",times);}
 			<TIMES>
 			"{"
 			(readSimpleCommand(blockSimpleCommands))+
@@ -193,7 +221,7 @@ TOKEN :
 		(
 			<IF> {structure = token.image;
 					ControlStructureData.put("structure",structure);} 
-			[<NOT> {not = true;}":"]
+			[<NOT> {not = false;}":"]
 			{ControlStructureData.put("not",not);}
 				(
 					<CAN> {condition = token.image;
@@ -215,29 +243,13 @@ TOKEN :
 			{ControlStructureData.put("block",blockSimpleCommands);}
 
 			<ELSE>
-			[<NOT> {not = true;}":"]
-			{ControlStructureData.put("not",not);}
-				(
-					<CAN> {condition = token.image;
-						ControlStructureData.put("condition",condition);}
-						"(" 
-							readSimpleCommand(checkSimpleCommand) 
-							{ControlStructureData.put("check",checkSimpleCommand);}
-						")"
-				 | 	<FACING> {condition = token.image;
-							ControlStructureData.put("condition",condition);}
-						"(" 
-						<DIRECTIONS>{check = token.image;
-									 ControlStructureData.put("check",check);}
-						")"
-				)
 			"{"
 			(readSimpleCommand(blockSimpleCommands_2))+
 			"}"
-			{ControlStructureData.put("block",blockSimpleCommands_2);}
+			{ControlStructureData.put("block2",blockSimpleCommands_2);}
 		)
-
-
+	  )
+		
 		{return ControlStructureData;}
 	}
 
@@ -245,24 +257,87 @@ TOKEN :
 	{
 	}
 	{
-		{
+		{	
 			String structure = (String) ControlStructureData.get("structure");
 
 			if (structure.equals("while")){
 				boolean not = (boolean) ControlStructureData.get("not");
 				String condition = (String) ControlStructureData.get("condition");
+				ArrayList<Object> blockSimpleCommands = (ArrayList<Object>) ControlStructureData.get("block");
 				
 				if (condition.equals("facing")){
 					String direction = (String) ControlStructureData.get("check");
-					ArrayList<Object> blockSimpleCommands = (ArrayList<Object>) ControlStructureData.get("block");
-					while (facing(direction)){
-						executeSimpleCommands(blockSimpleCommands, variablesMap);
+					
+					while (facing(direction) && not){
+						ArrayList<Object> blockSimpleCommandsCopy = copyList(blockSimpleCommands);
+						executeSimpleCommands(blockSimpleCommandsCopy, variablesMap);
 						}
-
+					}
+				
+				if (condition.equals("can")){
+					ArrayList<Object> command = (ArrayList<Object>) ControlStructureData.get("check");
+					while (ableToExecute(command,variablesMap) && not){
+						ArrayList<Object> blockSimpleCommandsCopy = copyList(blockSimpleCommands);
+						executeSimpleCommands(blockSimpleCommandsCopy, variablesMap);
+						}
 					}
 			}
 
+			if (structure.equals("repeat")){
+				int times = (Integer) ControlStructureData.get("times");
+				ArrayList<Object> blockSimpleCommands = (ArrayList<Object>) ControlStructureData.get("block");
+				for (int i = 0; i < times; i++) {
+					executeSimpleCommands(blockSimpleCommands, variablesMap);
+				}	
+			}
+
+			if (structure.equals("if")){
+				boolean not = (boolean) ControlStructureData.get("not");
+				
+				String condition = (String) ControlStructureData.get("condition");
+				ArrayList<Object> blockSimpleCommands = (ArrayList<Object>) ControlStructureData.get("block");
+				ArrayList<Object> blockSimpleCommands_2 = (ArrayList<Object>) ControlStructureData.get("block2");
+
+				if (condition.equals("facing")){
+					String direction = (String) ControlStructureData.get("check");
+					if (facing(direction) && not) {executeSimpleCommands(blockSimpleCommands, variablesMap);}
+					else {executeSimpleCommands(blockSimpleCommands_2, variablesMap);}
+				}
+				
+				if (condition.equals("can")){
+					ArrayList<Object> command = (ArrayList<Object>) ControlStructureData.get("check");
+					if (ableToExecute(command, variablesMap) && not) {executeSimpleCommands(blockSimpleCommands, variablesMap);}
+					else {executeSimpleCommands(blockSimpleCommands_2, variablesMap);}
+				}
+			}
+
 		}
+	}
+
+	ArrayList<Object> copyList(ArrayList<Object> simpleCommands):
+	{}
+	{
+		{
+			Object casting = simpleCommands;
+			ArrayList<ArrayList<String>> SimpleCommands = (ArrayList<ArrayList<String>>) casting;
+			ArrayList<ArrayList<String>> newBigList = new ArrayList<>();
+
+            for (ArrayList<String> simpleCommandList : SimpleCommands) {
+				ArrayList<String> newSmallList = new ArrayList<>();
+				newBigList.add(newSmallList);
+                String commandName = simpleCommandList.get(0);
+				newSmallList.add(commandName);
+                ArrayList<Object> variables = new ArrayList<>();
+                for (String variable : simpleCommandList) {
+					if (variable.equals(commandName)){continue;}
+					else{newSmallList.add(variable);}
+				}
+			}
+		Object casting2 = newBigList;
+		ArrayList<Object> newList = (ArrayList<Object>) casting2;
+		return newList;
+		}
+
 	}
 
 	boolean facing(String direction):
@@ -307,7 +382,7 @@ TOKEN :
 				)* 
 		   )*
 		")"
-
+		
 		//code that actually executes the procedure
 		{
 		 
@@ -344,7 +419,7 @@ TOKEN :
 							Integer value = Integer.parseInt(inputVaribles.get(i));
 							variablesMap.put(key, value);
 						}
-
+						mergeVariablesMap(variablesMap);
 						ArrayList<Object> allComands = procData[1];
 						
 						for (Object command : allComands) {
@@ -363,6 +438,19 @@ TOKEN :
 							return false;
 						}
 				}
+		return true;
+		}
+	}
+
+	void mergeVariablesMap(HashMap<String, Integer> variablesMap):
+	{}
+	{
+		{
+			for (Map.Entry<String, Integer> entry : globalVaribles.entrySet()) {
+				String key = entry.getKey();
+				Integer value = entry.getValue();
+				variablesMap.put(key,value);
+				}
 		}
 	}
 
@@ -371,12 +459,13 @@ TOKEN :
 		ArrayList<String> directions = new ArrayList<>();
 		Collections.addAll(directions, "north","south","east","west");
 		ArrayList<String> directions_2 = new ArrayList<>();
-		Collections.addAll(directions_2, "front", "right", "left", "back");
+		Collections.addAll(directions_2, "front", "right", "left", "back","around");
 	}
 	{
-		 {	
+		 {	write("si entra");
 			Object casting = simpleCommands;
 			ArrayList<ArrayList<String>> SimpleCommands = (ArrayList<ArrayList<String>>) casting;
+			
             for (ArrayList<String> simpleCommandList : SimpleCommands) {
                 String commandName = simpleCommandList.remove(0);
                 ArrayList<Object> variables = new ArrayList<>();
@@ -397,6 +486,7 @@ TOKEN :
                         }
                     }
                 }
+				
                 if (commandName.equals("jump")) {
                     world.setPostion((Integer)variables.get(0),(Integer)variables.get(1));
                 } else if (commandName.equals("walk") && (variables.size() > 1)) {
@@ -432,9 +522,69 @@ TOKEN :
                     }
                 } else if (commandName.equals("walk")) {
                     world.moveForward((Integer)variables.get(0), false);
-                }
+                } else if (commandName.equals("leap") && (variables.size() > 1)) {
+                    if (directions.contains(variables.get(1))) {
+                        turnTo((String)variables.get(1));
+                        world.moveForward((Integer)variables.get(0), true);
+                    } else {
+                        String direction = (String) variables.get(1);
+                        if (direction.equals("front")) {
+                            world.moveForward((Integer)variables.get(0), true);
+                        }
+                        if (direction.equals("right")) {
+                            world.turnRight();
+                            world.moveForward((Integer)variables.get(0), true);
+                            world.turnRight();
+                            world.turnRight();
+                            world.turnRight();
+                        }
+                        if (direction.equals("back")) {
+                            world.turnRight();
+                            world.turnRight();
+                            world.moveForward((Integer)variables.get(0), true);
+                            world.turnRight();
+                            world.turnRight();
+                        }
+                        if (direction.equals("left")) {
+                            world.turnRight();
+                            world.turnRight();
+                            world.turnRight();
+                            world.moveForward((Integer)variables.get(0), true);
+                            world.turnRight();
+                        }
+                    }
+                } else if (commandName.equals("leap")) {
+                    world.moveForward((Integer)variables.get(0), true);
+                } else if (commandName.equals("turnto") && directions.contains(variables.get(0))) {
+                    turnTo((String)variables.get(0));
+				} else if (commandName.equals("turn")) {
+					
+                    String direction = (String)variables.get(0);
+					if (direction.equals("left")) {
+						world.turnRight();
+						world.turnRight();
+						world.turnRight();
+                        }
+					if (direction.equals("right")) {
+						world.turnRight();
+                        }
+					if (direction.equals("around")) {
+						world.turnRight();
+						world.turnRight();
+                        }
+				} else if (commandName.equals("drop")) {
+                    world.putChips((Integer)variables.get(0));
+				} else if (commandName.equals("get")) {
+					world.pickChips((Integer)variables.get(0));
+				} else if (commandName.equals("grab")) {
+					world.grabBalloons((Integer)variables.get(0));
+				} else if (commandName.equals("letGo")) {
+					world.putBalloons((Integer)variables.get(0));
+				} else if (commandName.equals("nop")) {}
 
-            }
+			}
+		
+			return false;
         }
 	}
 
@@ -483,7 +633,7 @@ TOKEN :
 				)* 
 		   )*
 		")"
-
+		
 		//This part reads the commandBlock
 		//for example "{jump(1,2);walk(2,north)}" 
 		"{"
@@ -495,7 +645,16 @@ TOKEN :
 				{HashMap<String, Object> controlStructure = new HashMap<>();}
 				controlStructure = readControlStructure()
 				{allComands.add(controlStructure);}
-			)+
+			)
+			( 
+				{ArrayList<Object> procSimpleCommands = new ArrayList<>();}
+				";"readSimpleCommand(procSimpleCommands)
+				{allComands.add(procSimpleCommands);}
+				|
+				{HashMap<String, Object> controlStructure = new HashMap<>();}
+				";"controlStructure = readControlStructure()
+				{allComands.add(controlStructure);}
+			)*
 		"}"
 		{allProcedures.put(procName,procData);}
 
@@ -509,8 +668,16 @@ TOKEN :
 	}
 	{
 		(
-			 <JUMP>
-			|<WALK>
+			 	<JUMP>
+			|	<WALK>
+			|	<LEAP>
+			|	<TURN>
+			|	<TURNTO>
+			|	<DROP>
+			|	<GET>
+			|	<GRAB>
+			|	<LETGO>
+			|	<NOP>
 		)
 		{name = token.image;
 		simpleCommand.add(name);}
@@ -528,10 +695,307 @@ TOKEN :
 		{procSimpleCommands.add(simpleCommand);}
 	}
 
-	boolean ableToExecute():
+	boolean ableToExecute(ArrayList<Object> simpleCommands, HashMap<String, Integer> variablesMap):
+	{
+		ArrayList<String> directions = new ArrayList<>();
+		Collections.addAll(directions, "north","south","east","west");
+		ArrayList<String> directions_2 = new ArrayList<>();
+		Collections.addAll(directions_2, "front", "right", "left", "back","around");
+	}
+	{
+		{	
+			Object casting = simpleCommands;
+			ArrayList<ArrayList<String>> SimpleCommands = (ArrayList<ArrayList<String>>) casting;
+			ArrayList<String> command = SimpleCommands.get(0);
+
+			String commandName = command.get(0);
+			ArrayList<Object> variables = new ArrayList<>();
+			for (String variable : command) {
+				if (variable.equals(commandName)){continue;}
+
+				Integer intValue = variablesMap.get(variable);
+				if (intValue != null) {
+					variables.add(intValue);
+				} else if (directions.contains(variable)||directions_2.contains(variable)){
+					variables.add(variable);
+				}
+				else{
+					try {
+						intValue = Integer.parseInt(variable);
+						variables.add(intValue);
+					} catch (NumberFormatException e) {
+						salida = "The variable " + variable + " does not exist";
+						return false;
+					}
+				}
+			}
+
+			if (commandName.equals("jump")) {
+				return ableToJump((Integer)variables.get(0),(Integer)variables.get(1));
+			//WALK
+			} else if (commandName.equals("walk") && (variables.size() > 1)) {
+				Integer steps = (Integer) variables.get(0);
+				String direction = (String) variables.get(1);
+				boolean walking = true;
+
+				if (direction.equals("north")) {
+					return ableToMoveVertically(-steps, walking);
+				}
+				if (direction.equals("south")) {
+					return ableToMoveVertically(steps, walking);
+				}
+				if (direction.equals("east")) {
+					return ableToMoveVertically(steps, walking);
+				}
+				if (direction.equals("west")) {
+					return ableToMoveVertically(-steps, walking);
+				}
+				if (direction.equals("front")) {
+					int dir = world.getFacing();
+					steps = (Integer)variables.get(0) * chooseDirSign(dir);
+					return chooseUpOrDown(dir, steps, walking);
+				}
+				if (direction.equals("right")) {
+					world.turnRight();
+					int dir = world.getFacing();
+					world.turnRight();
+					world.turnRight();
+					world.turnRight();
+					steps = (Integer)variables.get(0) * chooseDirSign(dir);
+					return chooseUpOrDown(dir, steps, walking);
+					
+				}
+				if (direction.equals("back")) {
+					world.turnRight();
+					world.turnRight();
+					int dir = world.getFacing();
+					world.turnRight();
+					world.turnRight();
+					steps = (Integer)variables.get(0) * chooseDirSign(dir);
+					return chooseUpOrDown(dir, steps, walking);
+				}
+				if (direction.equals("left")) {
+					world.turnRight();
+					world.turnRight();
+					world.turnRight();
+					int dir = world.getFacing();
+					world.turnRight();
+					steps = (Integer)variables.get(0) * chooseDirSign(dir);
+					return chooseUpOrDown(dir, steps, walking);
+				}
+			} else if (commandName.equals("walk")) {
+				boolean walking = true;
+				int dir = world.getFacing();
+				int steps = (Integer)variables.get(0) * chooseDirSign(dir);
+				return chooseUpOrDown(dir, steps, walking);
+
+			//LEAP
+			} else if (commandName.equals("leap") && (variables.size() > 1)) {
+				Integer steps = (Integer) variables.get(0);
+				String direction = (String) variables.get(1);
+				boolean walking = false;
+
+				if (direction.equals("north")) {
+					return ableToMoveVertically(-steps, walking);
+				}
+				if (direction.equals("south")) {
+					return ableToMoveVertically(steps, walking);
+				}
+				if (direction.equals("east")) {
+					return ableToMoveVertically(steps, walking);
+				}
+				if (direction.equals("west")) {
+					return ableToMoveVertically(-steps, walking);
+				}
+				if (direction.equals("front")) {
+					int dir = world.getFacing();
+					steps = (Integer)variables.get(0) * chooseDirSign(dir);
+					return chooseUpOrDown(dir, steps, walking);
+				}
+				if (direction.equals("right")) {
+					world.turnRight();
+					int dir = world.getFacing();
+					world.turnRight();
+					world.turnRight();
+					world.turnRight();
+					steps = (Integer)variables.get(0) * chooseDirSign(dir);
+					return chooseUpOrDown(dir, steps, walking);
+					
+				}
+				if (direction.equals("back")) {
+					world.turnRight();
+					world.turnRight();
+					int dir = world.getFacing();
+					world.turnRight();
+					world.turnRight();
+					steps = (Integer)variables.get(0) * chooseDirSign(dir);
+					return chooseUpOrDown(dir, steps, walking);
+				}
+				if (direction.equals("left")) {
+					world.turnRight();
+					world.turnRight();
+					world.turnRight();
+					int dir = world.getFacing();
+					world.turnRight();
+					steps = (Integer)variables.get(0) * chooseDirSign(dir);
+					return chooseUpOrDown(dir, steps, walking);
+				}
+
+			} else if (commandName.equals("leap")) {
+				boolean walking = true;
+				int dir = world.getFacing();
+				int steps = (Integer)variables.get(0) * chooseDirSign(dir);
+				return chooseUpOrDown(dir, steps, walking);
+
+			} else if (commandName.equals("turnto")) {
+				return true;
+			} else if (commandName.equals("turn")) {
+				return true;
+			} else if (commandName.equals("drop")) {
+				return ableToPutChips((Integer)variables.get(0));
+			} else if (commandName.equals("get")) {
+				return ableToPickChips((Integer)variables.get(0));
+			} else if (commandName.equals("grab")) {
+				return ableToGrabBalloons((Integer)variables.get(0));
+			} else if (commandName.equals("letGo")) {
+				return abletoToPutBalloons((Integer)variables.get(0));
+			} else if (commandName.equals("nop")) {
+				return true;
+			}
+			return true;
+		}
+		
+	}
+
+	boolean ableToPutChips(int chips): 
 	{}
 	{
-		{return true;}
+		{
+			if (chips < 0){return false;}
+			else if (chips > world.freeSpacesForChips()){return false;}	
+			else if (world.getMyChips()< chips){return false;}	
+			return true;
+		}
+	}
+
+	boolean ableToPickChips(int chips): 
+	{}
+	{
+		{
+			if (chips < 0){return false;}
+			else if (chips > world.chipsToPick()){return false;}
+			return true;
+		}
+	}
+
+	boolean ableToGrabBalloons(int balloons):
+	{}
+	{
+		{
+			if (balloons < 0){return false;}
+			else if(world.countBalloons(world.getPosition()) < balloons) {return false;}
+			return true;
+		}
+	}	
+
+	boolean abletoToPutBalloons(int balloons):
+	{}
+	{
+		{
+			if (balloons < 0){return false;}
+		else if (world.getMyBalloons()< balloons){return false;}
+		return true;
+		}
+	}
+
+	boolean ableToJump(int x, int y):
+	{}
+	{
+		{
+		
+			if(x < 1 || x > world.getN()){return false;}
+			else if ( y< 1  || y > world.getN() ) {return false;}
+			else if  (world.isBlocked(world.getPosition()) ){return false;}
+			return true;
+		}
+	}
+
+	boolean chooseUpOrDown(int dir, int steps, boolean walking):
+	{}
+	{
+		{
+			if (dir == 0 || dir == 1){return ableToMoveVertically(steps, walking);}
+			else {return ableToMoveHorizontally(steps, walking); }
+		}
+	}
+
+	Integer chooseDirSign(int dir):
+	{}
+	{
+		{
+			if (dir == 0 || dir == 3){return -1;}
+			else {return 1;}
+		}
+	}
+
+	String convertDir(Integer directionNum):
+	{}
+	{
+		{	
+			
+			String directionStr;
+			if (directionNum == 0){return "north";}
+			else if (directionNum == 1){return "south";}
+			else if (directionNum == 2){return "east";}
+			else if (directionNum == 3){return "west";}	
+		}
+	}
+
+	boolean ableToMoveVertically(int steps, boolean walking):
+	{}
+	{
+		{
+			Point p =world.getPosition();
+			int tam = world.getN();
+			int newY,i;
+			
+			newY = p.y+steps;
+			int dir = 5;
+			if(p.y - newY > 0)
+				dir = 0;
+			else
+				dir = 1;
+			if (newY > tam){return false;}
+			else if (newY < 1){return false;}
+			else if (world.isBlocked(new Point(p.x, newY))){return false;}
+			else if(world.blockedInRange(p.x, p.y, newY, dir) && walking){return false;}
+			return true;
+		}
+	}
+
+	boolean ableToMoveHorizontally(int steps, boolean walking):
+	{}
+	{
+		{
+			Point p =world.getPosition();
+			int tam = world.getN();
+			int newX;
+			
+			newX = p.x+steps;
+			
+			
+			int dir = 5;
+			if(p.x - newX > 0)
+				dir = 3;
+			else
+				dir = 2;
+			
+			if (newX > tam) {return false;}
+			else if (newX < 1) {return false;}
+			else if (world.isBlocked(new Point(newX,p.y))){return false;}
+			else if(world.blockedInRange(p.x, p.y, newX, dir)&& walking){return false;}
+			return true;
+		}
 	}
 
 	void turnTo(String directionStr):
