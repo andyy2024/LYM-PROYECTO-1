@@ -121,30 +121,44 @@ TOKEN :
 		boolean noError = true;
 		HashMap<String, Object> ControlStructureData;
 		ArrayList<Object> simpleCommands = new ArrayList<>();
+		Object[] procInfo;
 	}
 	{
-		"{"
-			(  
-					readSimpleCommand(simpleCommands)(";"readSimpleCommand(simpleCommands))*
-					noError = executeSimpleCommands(simpleCommands, globalVaribles)
-				|
-					noError = executeProc()
-				|
-					ControlStructureData = readControlStructure()
+		(
+			"{"
+				(  
+						readSimpleCommand(simpleCommands)(";"readSimpleCommand(simpleCommands))*
+						noError = executeSimpleCommands(simpleCommands, globalVaribles)
+					|
+						
+						procInfo = readProc()
+						executeProc(procInfo)
+					|
+						ControlStructureData = readControlStructure()
+						executeControlStructure(ControlStructureData, globalVaribles)
+					|
+						assignment()
+				)
+
+				(
+					";"(   readSimpleCommand(simpleCommands)(";"readSimpleCommand(simpleCommands))*  )
+					executeSimpleCommands(simpleCommands, globalVaribles)
+					|
+					";"procInfo = readProc()
+					executeProc(procInfo)
+					|
+					";"ControlStructureData = readControlStructure()
 					executeControlStructure(ControlStructureData, globalVaribles)
-			)
+					|
+						";"assignment()
+				)*
 
-			(
-				";"(   readSimpleCommand(simpleCommands)(";"readSimpleCommand(simpleCommands))*  )
-				executeSimpleCommands(simpleCommands, globalVaribles)
-				|
-				";"noError = executeProc()
-				|
-				";"ControlStructureData = readControlStructure()
-				executeControlStructure(ControlStructureData, globalVaribles)
-			)*
+			"}"
+		)
+		|
+		readSimpleCommand(simpleCommands)
+		noError = executeSimpleCommands(simpleCommands, globalVaribles)
 
-		"}"
 	}
 
 	void write(String thingToCheck):
@@ -174,8 +188,8 @@ TOKEN :
 		String check;
 		int times;
 		ArrayList<Object> checkSimpleCommand = new ArrayList<>();
-		ArrayList<Object> blockSimpleCommands = new ArrayList<>();
-		ArrayList<Object> blockSimpleCommands_2 = new ArrayList<>();
+		ArrayList<Object> allComands = new ArrayList<>();
+		ArrayList<Object> allComands_2 = new ArrayList<>();
 	}
 	{
 	  (
@@ -198,10 +212,36 @@ TOKEN :
 									 ControlStructureData.put("check",check);}
 						")"
 				)
+
 			"{"
-			(readSimpleCommand(blockSimpleCommands))+
+				( 
+					{ArrayList<Object> procSimpleCommands = new ArrayList<>();}
+					readSimpleCommand(procSimpleCommands)
+					{allComands.add(procSimpleCommands);}
+					|
+					{HashMap<String, Object> controlStructure = new HashMap<>();}
+					controlStructure = readControlStructure()
+					{allComands.add(controlStructure);}
+					|
+					{Object[] newProc;}newProc = readProc(){allComands.add(newProc);}
+					|
+					assignment()
+				)
+				( 
+					{ArrayList<Object> procSimpleCommands = new ArrayList<>();}
+					";"readSimpleCommand(procSimpleCommands)
+					{allComands.add(procSimpleCommands);}
+					|
+					{HashMap<String, Object> controlStructure = new HashMap<>();}
+					";"controlStructure = readControlStructure()
+					{allComands.add(controlStructure);}
+					|
+					{Object[] newProc;}";"newProc = readProc(){allComands.add(newProc);}
+					|
+					";"assignment()
+				)*
 			"}"
-			{ControlStructureData.put("block",blockSimpleCommands);}
+			{ControlStructureData.put("block",allComands);}
 		)
 		|
 		(
@@ -213,13 +253,38 @@ TOKEN :
 				  ControlStructureData.put("times",times);}
 			<TIMES>
 			"{"
-			(readSimpleCommand(blockSimpleCommands))+
+				( 
+					{ArrayList<Object> procSimpleCommands = new ArrayList<>();}
+					readSimpleCommand(procSimpleCommands)
+					{allComands.add(procSimpleCommands);}
+					|
+					{HashMap<String, Object> controlStructure = new HashMap<>();}
+					controlStructure = readControlStructure()
+					{allComands.add(controlStructure);}
+					|
+					{Object[] newProc;}newProc = readProc(){allComands.add(newProc);}
+					|
+					assignment()
+				)
+				( 
+					{ArrayList<Object> procSimpleCommands = new ArrayList<>();}
+					";"readSimpleCommand(procSimpleCommands)
+					{allComands.add(procSimpleCommands);}
+					|
+					{HashMap<String, Object> controlStructure = new HashMap<>();}
+					";"controlStructure = readControlStructure()
+					{allComands.add(controlStructure);}
+					|
+					{Object[] newProc;}";"newProc = readProc(){allComands.add(newProc);}
+					|
+					";"assignment()
+				)*
 			"}"
-			{ControlStructureData.put("block",blockSimpleCommands);}
+			{ControlStructureData.put("block",allComands);}
 		)
 		|
 		(
-			<IF> {structure = token.image;
+			<IF> {structure = token.image; 
 					ControlStructureData.put("structure",structure);} 
 			[<NOT> {not = false;}":"]
 			{ControlStructureData.put("not",not);}
@@ -238,15 +303,65 @@ TOKEN :
 						")"
 				)
 			"{"
-			(readSimpleCommand(blockSimpleCommands))+
+				( 
+					{ArrayList<Object> procSimpleCommands = new ArrayList<>();}
+					readSimpleCommand(procSimpleCommands)
+					{allComands.add(procSimpleCommands);}
+					|
+					{HashMap<String, Object> controlStructure = new HashMap<>();}
+					controlStructure = readControlStructure()
+					{allComands.add(controlStructure);}
+					|
+					{Object[] newProc;}newProc = readProc(){allComands.add(newProc);}
+					|
+					assignment()
+				)
+				( 
+					{ArrayList<Object> procSimpleCommands = new ArrayList<>();}
+					";"readSimpleCommand(procSimpleCommands)
+					{allComands.add(procSimpleCommands);}
+					|
+					{HashMap<String, Object> controlStructure = new HashMap<>();}
+					";"controlStructure = readControlStructure()
+					{allComands.add(controlStructure);}
+					|
+					{Object[] newProc;}";"newProc = readProc(){allComands.add(newProc);}
+					|
+					";"assignment()
+				)*
 			"}"
-			{ControlStructureData.put("block",blockSimpleCommands);}
+			{ControlStructureData.put("block",allComands);}
 
 			<ELSE>
 			"{"
-			(readSimpleCommand(blockSimpleCommands_2))+
+				( 
+					{ArrayList<Object> procSimpleCommands = new ArrayList<>();}
+					readSimpleCommand(procSimpleCommands)
+					{allComands_2.add(procSimpleCommands);}
+					|
+					{HashMap<String, Object> controlStructure = new HashMap<>();}
+					controlStructure = readControlStructure()
+					{allComands_2.add(controlStructure);}
+					|
+					{Object[] newProc;}newProc = readProc(){allComands_2.add(newProc);}
+					|
+					assignment()
+				)
+				( 
+					{ArrayList<Object> procSimpleCommands = new ArrayList<>();}
+					";"readSimpleCommand(procSimpleCommands)
+					{allComands_2.add(procSimpleCommands);}
+					|
+					{HashMap<String, Object> controlStructure = new HashMap<>();}
+					";"controlStructure = readControlStructure()
+					{allComands_2.add(controlStructure);}
+					|
+					{Object[] newProc;}";"newProc = readProc(){allComands_2.add(newProc);}
+					|
+					";"assignment()
+				)*
 			"}"
-			{ControlStructureData.put("block2",blockSimpleCommands_2);}
+			{ControlStructureData.put("block2",allComands_2);}
 		)
 	  )
 		
@@ -263,31 +378,63 @@ TOKEN :
 			if (structure.equals("while")){
 				boolean not = (boolean) ControlStructureData.get("not");
 				String condition = (String) ControlStructureData.get("condition");
-				ArrayList<Object> blockSimpleCommands = (ArrayList<Object>) ControlStructureData.get("block");
+				ArrayList<Object> allComands = (ArrayList<Object>) ControlStructureData.get("block");
 				
 				if (condition.equals("facing")){
 					String direction = (String) ControlStructureData.get("check");
 					
 					while (facing(direction) && not){
-						ArrayList<Object> blockSimpleCommandsCopy = copyList(blockSimpleCommands);
-						executeSimpleCommands(blockSimpleCommandsCopy, variablesMap);
+
+						for (Object command : allComands) {
+							if (command instanceof ArrayList<?>){
+								executeSimpleCommands((ArrayList<Object>)command, variablesMap);
+								}
+							else if (command instanceof HashMap<?, ?>) {
+								executeControlStructure((HashMap<String, Object>)command, variablesMap);
+								}
+							else if (command instanceof Object[]) {
+								executeInsideProc((Object[])command,variablesMap);
+								}
+							}
+
 						}
 					}
 				
 				if (condition.equals("can")){
-					ArrayList<Object> command = (ArrayList<Object>) ControlStructureData.get("check");
-					while (ableToExecute(command,variablesMap) && not){
-						ArrayList<Object> blockSimpleCommandsCopy = copyList(blockSimpleCommands);
-						executeSimpleCommands(blockSimpleCommandsCopy, variablesMap);
+					ArrayList<Object> commandToCheck = (ArrayList<Object>) ControlStructureData.get("check");
+					while (ableToExecute(commandToCheck,variablesMap) && not){
+
+						for (Object command : allComands) {
+							if (command instanceof ArrayList<?>){
+								executeSimpleCommands((ArrayList<Object>)command, variablesMap);
+								}
+							else if (command instanceof HashMap<?, ?>) {
+								executeControlStructure((HashMap<String, Object>)command, variablesMap);
+								}
+							else if (command instanceof Object[]) {
+								executeInsideProc((Object[])command,variablesMap);
+								}
+							}
 						}
 					}
 			}
 
 			if (structure.equals("repeat")){
 				int times = (Integer) ControlStructureData.get("times");
-				ArrayList<Object> blockSimpleCommands = (ArrayList<Object>) ControlStructureData.get("block");
+				ArrayList<Object> allComands = (ArrayList<Object>) ControlStructureData.get("block");
 				for (int i = 0; i < times; i++) {
-					executeSimpleCommands(blockSimpleCommands, variablesMap);
+
+					for (Object command : allComands) {
+							if (command instanceof ArrayList<?>){
+								executeSimpleCommands((ArrayList<Object>)command, variablesMap);
+								}
+							else if (command instanceof HashMap<?, ?>) {
+								executeControlStructure((HashMap<String, Object>)command, variablesMap);
+								}
+							else if (command instanceof Object[]) {
+								executeInsideProc((Object[])command,variablesMap);
+								}
+							}
 				}	
 			}
 
@@ -295,19 +442,69 @@ TOKEN :
 				boolean not = (boolean) ControlStructureData.get("not");
 				
 				String condition = (String) ControlStructureData.get("condition");
-				ArrayList<Object> blockSimpleCommands = (ArrayList<Object>) ControlStructureData.get("block");
-				ArrayList<Object> blockSimpleCommands_2 = (ArrayList<Object>) ControlStructureData.get("block2");
+				ArrayList<Object> allComands = (ArrayList<Object>) ControlStructureData.get("block");
+				ArrayList<Object> allComands_2 = (ArrayList<Object>) ControlStructureData.get("block2");
 
 				if (condition.equals("facing")){
 					String direction = (String) ControlStructureData.get("check");
-					if (facing(direction) && not) {executeSimpleCommands(blockSimpleCommands, variablesMap);}
-					else {executeSimpleCommands(blockSimpleCommands_2, variablesMap);}
+					if (facing(direction) && not) {
+
+						for (Object command : allComands) {
+							if (command instanceof ArrayList<?>){
+								executeSimpleCommands((ArrayList<Object>)command, variablesMap);
+								}
+							else if (command instanceof HashMap<?, ?>) {
+								executeControlStructure((HashMap<String, Object>)command, variablesMap);
+								}
+							else if (command instanceof Object[]) {
+								executeInsideProc((Object[])command,variablesMap);
+								}
+							}
+						}
+					else {
+						for (Object command : allComands_2) {
+							if (command instanceof ArrayList<?>){
+								executeSimpleCommands((ArrayList<Object>)command, variablesMap);
+								}
+							else if (command instanceof HashMap<?, ?>) {
+								executeControlStructure((HashMap<String, Object>)command, variablesMap);
+								}
+							else if (command instanceof Object[]) {
+								executeInsideProc((Object[])command,variablesMap);
+								}
+							}
+					}
 				}
 				
 				if (condition.equals("can")){
-					ArrayList<Object> command = (ArrayList<Object>) ControlStructureData.get("check");
-					if (ableToExecute(command, variablesMap) && not) {executeSimpleCommands(blockSimpleCommands, variablesMap);}
-					else {executeSimpleCommands(blockSimpleCommands_2, variablesMap);}
+					ArrayList<Object> commandToCheck = (ArrayList<Object>) ControlStructureData.get("check");
+
+					if (ableToExecute(commandToCheck, variablesMap) && not) {
+						for (Object command : allComands) {
+							if (command instanceof ArrayList<?>){
+								executeSimpleCommands((ArrayList<Object>)command, variablesMap);
+								}
+							else if (command instanceof HashMap<?, ?>) {
+								executeControlStructure((HashMap<String, Object>)command, variablesMap);
+								}
+							else if (command instanceof Object[]) {
+								executeInsideProc((Object[])command,variablesMap);
+								}
+							}
+						}
+					else {
+						for (Object command : allComands_2) {
+							if (command instanceof ArrayList<?>){
+								executeSimpleCommands((ArrayList<Object>)command, variablesMap);
+								}
+							else if (command instanceof HashMap<?, ?>) {
+								executeControlStructure((HashMap<String, Object>)command, variablesMap);
+								}
+							else if (command instanceof Object[]) {
+								executeInsideProc((Object[])command,variablesMap);
+								}
+							}
+					}
 				}
 			}
 
@@ -362,11 +559,13 @@ TOKEN :
 		}
 	}
 
-	boolean executeProc():
+
+	Object[] readProc():
 	{
 		String procName; 
 		String variable;
 		ArrayList<String> inputVaribles = new ArrayList<>();
+		Object[] procInfo = new Object[2];
 	}
 	{
 		<NAME>
@@ -382,10 +581,21 @@ TOKEN :
 				)* 
 		   )*
 		")"
-		
-		//code that actually executes the procedure
+		{	procInfo[0] = procName; procInfo[1] = inputVaribles; 
+			return procInfo;}
+	}
+
+	void executeProc(Object[] newProc):
+	{
+		String variable;
+	}
+	{
 		{
-		 
+			//code that actually executes the procedure
+		{
+			String procName = (String) newProc[0]; 
+			ArrayList<String> inputVaribles = (ArrayList<String>) newProc[1];
+
 			for (int i = 0; i < inputVaribles.size(); i++) 
 			{
 					variable = inputVaribles.get(i);
@@ -400,7 +610,6 @@ TOKEN :
 						catch (NumberFormatException e) 
 							{
 								salida = "The variable " + variable + " does not exist";
-								return false;
 							}
 					}	
 			}
@@ -419,7 +628,7 @@ TOKEN :
 							Integer value = Integer.parseInt(inputVaribles.get(i));
 							variablesMap.put(key, value);
 						}
-						mergeVariablesMap(variablesMap);
+						addGlobalVariables(variablesMap);
 						ArrayList<Object> allComands = procData[1];
 						
 						for (Object command : allComands) {
@@ -429,20 +638,105 @@ TOKEN :
 							else if (command instanceof HashMap<?, ?>) {
 								executeControlStructure((HashMap<String, Object>)command, variablesMap);
 								}
+							else if (command instanceof Object[]) {
+								executeInsideProc((Object[])command,variablesMap);
+								}
         					}
 					} 
 				
 					else 
 						{  salida = "The procedure being called "+"'"+procName+"'"+
 							" takes "+procVaribles.size()+" input varibles, not "+inputVaribles.size();
-							return false;
 						}
 				}
-		return true;
+		}
 		}
 	}
 
-	void mergeVariablesMap(HashMap<String, Integer> variablesMap):
+	void executeInsideProc(Object[] newProc, HashMap<String, Integer> superVariablesMap):
+	{
+		String variable;
+	}
+	{
+		{
+			//code that actually executes the procedure
+		{ 
+			String procName = (String) newProc[0]; 
+			ArrayList<String> inputVaribles = (ArrayList<String>) newProc[1];
+
+			for (int i = 0; i < inputVaribles.size(); i++) 
+			{
+					variable = inputVaribles.get(i);
+					if (globalVaribles.get(variable) != null)
+					{
+						inputVaribles.set(i,Integer.toString(globalVaribles.get(variable)));
+					} else 
+					{
+						try {
+								int intValue = Integer.parseInt(variable);
+							} 
+						catch (NumberFormatException e) 
+							{
+								salida = "The variable " + variable + " does not exist";
+							}
+					}	
+			}
+			if (allProcedures.containsKey(procName))
+				{
+					ArrayList[] procData = allProcedures.get(procName);
+					ArrayList<String> procVaribles = procData[0];
+
+					if (procVaribles.size() == inputVaribles.size())
+					{	
+						HashMap<String, Integer> variablesMap = new HashMap<>();
+
+						for (int i = 0; i < inputVaribles.size(); i++) 
+						{	
+							String key = procVaribles.get(i);
+							String value = inputVaribles.get(i);
+							if (key.equals(value)){continue;}
+							variablesMap.put(key, Integer.parseInt(value));
+						}
+						
+						addGlobalVariables(variablesMap);
+						mergeVariablesMap(variablesMap, superVariablesMap);
+						ArrayList<Object> allComands = procData[1];
+						
+						for (Object command : allComands) {
+							if (command instanceof ArrayList<?>){
+								executeSimpleCommands((ArrayList<Object>)command, variablesMap);
+								}
+							else if (command instanceof HashMap<?, ?>) {
+								executeControlStructure((HashMap<String, Object>)command, variablesMap);
+								}
+							else if (command instanceof Object[]) {
+								executeInsideProc((Object[])command,variablesMap);
+								}
+        					}
+					} 
+				
+					else 
+						{  salida = "The procedure being called "+"'"+procName+"'"+
+							" takes "+procVaribles.size()+" input varibles, not "+inputVaribles.size();
+						}
+				}
+		}
+		}
+	}
+
+	void mergeVariablesMap(HashMap<String, Integer> variablesMap, HashMap<String, Integer> superVariablesMap):
+	{}
+	{
+		{
+			for (Map.Entry<String, Integer> entry : superVariablesMap.entrySet()) {
+				String key = entry.getKey();
+				Integer value = entry.getValue();
+				variablesMap.put(key,value);
+				}
+		}
+	}
+
+	void addGlobalVariables(HashMap<String, Integer> variablesMap):
 	{}
 	{
 		{
@@ -462,14 +756,15 @@ TOKEN :
 		Collections.addAll(directions_2, "front", "right", "left", "back","around");
 	}
 	{
-		 {	write("si entra");
+		 {	
 			Object casting = simpleCommands;
 			ArrayList<ArrayList<String>> SimpleCommands = (ArrayList<ArrayList<String>>) casting;
 			
             for (ArrayList<String> simpleCommandList : SimpleCommands) {
-                String commandName = simpleCommandList.remove(0);
+                String commandName = simpleCommandList.get(0);
                 ArrayList<Object> variables = new ArrayList<>();
                 for (String variable : simpleCommandList) {
+					if (variable.equals(commandName)){continue;}
                     Integer intValue = variablesMap.get(variable);
                     if (intValue != null) {
                         variables.add(intValue);
@@ -589,9 +884,15 @@ TOKEN :
 	}
 
 	void assignment():
-	{}
 	{
-		<NAME>"="<NUM>
+		String varName;
+		Integer value;
+	}
+	{
+		<NAME>{varName = token.image;}
+		"="
+		<NUM>{value = Integer.parseInt(token.image);}
+		{globalVaribles.put(varName,value);}
 	}
 
 	void defVar():
@@ -633,7 +934,9 @@ TOKEN :
 				)* 
 		   )*
 		")"
-		
+
+		{allProcedures.put(procName,procData);}
+
 		//This part reads the commandBlock
 		//for example "{jump(1,2);walk(2,north)}" 
 		"{"
@@ -645,6 +948,10 @@ TOKEN :
 				{HashMap<String, Object> controlStructure = new HashMap<>();}
 				controlStructure = readControlStructure()
 				{allComands.add(controlStructure);}
+				|
+				{Object[] newProc;}newProc = readProc(){allComands.add(newProc);}
+				|
+				assignment()
 			)
 			( 
 				{ArrayList<Object> procSimpleCommands = new ArrayList<>();}
@@ -654,9 +961,13 @@ TOKEN :
 				{HashMap<String, Object> controlStructure = new HashMap<>();}
 				";"controlStructure = readControlStructure()
 				{allComands.add(controlStructure);}
+				|
+				{Object[] newProc;}";"newProc = readProc(){allComands.add(newProc);}
+				|
+				";"assignment()
 			)*
 		"}"
-		{allProcedures.put(procName,procData);}
+		
 
 	}
 
