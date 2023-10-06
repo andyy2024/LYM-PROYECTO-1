@@ -383,7 +383,7 @@ TOKEN :
 				if (condition.equals("facing")){
 					String direction = (String) ControlStructureData.get("check");
 					
-					while (facing(direction) && not){
+					while (facing(direction) == not){
 
 						for (Object command : allComands) {
 							if (command instanceof ArrayList<?>){
@@ -402,7 +402,7 @@ TOKEN :
 				
 				if (condition.equals("can")){
 					ArrayList<Object> commandToCheck = (ArrayList<Object>) ControlStructureData.get("check");
-					while (ableToExecute(commandToCheck,variablesMap) && not){
+					while (ableToExecute(commandToCheck,variablesMap) == not){
 
 						for (Object command : allComands) {
 							if (command instanceof ArrayList<?>){
@@ -447,7 +447,7 @@ TOKEN :
 
 				if (condition.equals("facing")){
 					String direction = (String) ControlStructureData.get("check");
-					if (facing(direction) && not) {
+					if (facing(direction) == not) {
 
 						for (Object command : allComands) {
 							if (command instanceof ArrayList<?>){
@@ -479,7 +479,7 @@ TOKEN :
 				if (condition.equals("can")){
 					ArrayList<Object> commandToCheck = (ArrayList<Object>) ControlStructureData.get("check");
 
-					if (ableToExecute(commandToCheck, variablesMap) && not) {
+					if (ableToExecute(commandToCheck, variablesMap) == not) {
 						for (Object command : allComands) {
 							if (command instanceof ArrayList<?>){
 								executeSimpleCommands((ArrayList<Object>)command, variablesMap);
@@ -1056,10 +1056,10 @@ TOKEN :
 					return ableToMoveVertically(steps, walking);
 				}
 				if (direction.equals("east")) {
-					return ableToMoveVertically(steps, walking);
+					return ableToMoveHorizontally(steps, walking);
 				}
-				if (direction.equals("west")) {
-					return ableToMoveVertically(-steps, walking);
+				if (direction.equals("west")) {write("si entra");
+					return ableToMoveHorizontally(-steps, walking);
 				}
 				if (direction.equals("front")) {
 					int dir = world.getFacing();
@@ -1113,10 +1113,10 @@ TOKEN :
 					return ableToMoveVertically(steps, walking);
 				}
 				if (direction.equals("east")) {
-					return ableToMoveVertically(steps, walking);
+					return ableToMoveHorizontally(steps, walking);
 				}
 				if (direction.equals("west")) {
-					return ableToMoveVertically(-steps, walking);
+					return ableToMoveHorizontally(-steps, walking);
 				}
 				if (direction.equals("front")) {
 					int dir = world.getFacing();
@@ -1305,7 +1305,7 @@ TOKEN :
 			else if (newX < 1) {return false;}
 			else if (world.isBlocked(new Point(newX,p.y))){return false;}
 			else if(world.blockedInRange(p.x, p.y, newX, dir)&& walking){return false;}
-			return true;
+			write("JAJAJAJAJ");return true;
 		}
 	}
 
